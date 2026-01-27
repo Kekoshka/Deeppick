@@ -1,0 +1,6 @@
+@Deeppick_HostAddress = http://localhost:5082
+
+GET {{Deeppick_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
