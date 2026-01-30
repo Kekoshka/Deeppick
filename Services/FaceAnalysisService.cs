@@ -1,11 +1,13 @@
 ﻿using Deeppick.Interfaces;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
+using Emgu.CV.Dnn;
 using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using System;
 using System.Drawing;
 using System.Drawing;
+using System.Runtime.InteropServices;
 
 namespace Deeppick.Services
 {
@@ -33,68 +35,85 @@ namespace Deeppick.Services
                     int frameInterval = (int)(fps * rate / 1000);
                     if (frameInterval < 1) frameInterval = 1;
 
-                    // Проверка наличия файла каскада
-                    string cascadePath = "haarcascade_frontalface_default.xml";
-                    if (!File.Exists(cascadePath))
+                    // Проверка наличия файла модели YuNet
+                    string modelPath = "C:\\Users\\Kekoshka\\Source\\Repos\\Deeppick\\face_detection_yunet_2023mar.onnx";
+                    if (!File.Exists(modelPath))
                     {
-                        throw new FileNotFoundException($"Файл каскада не найден: {cascadePath}");
+                        throw new FileNotFoundException($"Файл модели YuNet не найден: {modelPath}");
                     }
 
-                    using (var faceClassifier = new CascadeClassifier(cascadePath))
+                    Mat frame = new Mat();
+                    int currentFrame = 0;
+                    FaceDetectorYN detector = null;
+
+                    while (capture.Read(frame) && !frame.IsEmpty)
                     {
-                        if (faceClassifier == null)
+                        if (currentFrame % frameInterval == 0)
                         {
-                            throw new Exception("Не удалось загрузить каскадный классификатор");
-                        }
-
-                        Mat frame = new Mat();
-                        int currentFrame = 0;
-
-                        while (capture.Read(frame) && !frame.IsEmpty)
-                        {
-                            if (currentFrame % frameInterval == 0)
+                            // Инициализация или обновление детектора YuNet (если изменился размер кадра)
+                            if (detector == null || detector.InputSize.Width != frame.Width || detector.InputSize.Height != frame.Height)
                             {
-                                // Детектирование лиц
-                                using (var grayFrame = new Mat())
+                                detector?.Dispose();
+                                detector = new FaceDetectorYN(
+                                    model: modelPath,
+                                    config: string.Empty,
+                                    inputSize: new Size(frame.Width, frame.Height),
+                                    scoreThreshold: 0.90f, // Понижен порог для лучшего обнаружения
+                                    nmsThreshold: 0.5f,
+                                    topK: 5000,
+                                    backendId: Emgu.CV.Dnn.Backend.Default,
+                                    targetId: Target.Cuda);
+                            }
+
+                            // Детекция лиц с помощью YuNet
+                            using (var facesMat = new Mat())
+                            {
+                                detector.Detect(frame, facesMat);
+
+                                if (facesMat.Rows > 0)
                                 {
-                                    CvInvoke.CvtColor(frame, grayFrame, ColorConversion.Bgr2Gray);
-                                    CvInvoke.EqualizeHist(grayFrame, grayFrame);
+                                    // Извлекаем данные о лицах
+                                    var facesData = ExtractFacesData(facesMat);
 
-                                    Rectangle[] detectedFaces = faceClassifier.DetectMultiScale(
-                                        grayFrame,
-                                        scaleFactor: 1.1,
-                                        minNeighbors: 5,
-                                        minSize: new Size(30, 30)
-                                    );
-
-                                    Console.WriteLine($"Кадр {currentFrame}: найдено {detectedFaces.Length} лиц");
+                                    Console.WriteLine($"Кадр {currentFrame}: найдено {facesData.Count} лиц");
 
                                     // Обработка каждого обнаруженного лица
-                                    foreach (var faceRect in detectedFaces)
+                                    foreach (var faceInfo in facesData)
                                     {
-                                        // Вырезание и изменение размера области лица
-                                        using (var faceMat = new Mat(frame, faceRect))
-                                        using (var resizedFace = new Mat())
-                                        {
-                                            CvInvoke.Resize(faceMat, resizedFace,
-                                                new Size(frameResolution, frameResolution),
-                                                interpolation: Inter.Linear);
+                                        var faceRect = faceInfo.Rectangle;
 
-                                            // Правильное преобразование в JPEG-байты
-                                            using (var jpegBytes = new VectorOfByte())
+                                        // Проверяем, что прямоугольник лица валидный
+                                        if (faceRect.Width > 10 && faceRect.Height > 10 &&
+                                            faceRect.X >= 0 && faceRect.Y >= 0 &&
+                                            faceRect.X + faceRect.Width <= frame.Width &&
+                                            faceRect.Y + faceRect.Height <= frame.Height)
+                                        {
+                                            // Вырезание и изменение размера области лица
+                                            using (var faceMat = new Mat(frame, faceRect))
+                                            using (var resizedFace = new Mat())
                                             {
-                                                // Кодирование в формат JPEG
-                                                CvInvoke.Imencode(".jpg", resizedFace, jpegBytes);
-                                                faces.Add(jpegBytes.ToArray());
+                                                CvInvoke.Resize(faceMat, resizedFace,
+                                                    new Size(frameResolution, frameResolution),
+                                                    interpolation: Inter.Linear);
+
+                                                // Преобразование в JPEG-байты
+                                                using (var jpegBytes = new VectorOfByte())
+                                                {
+                                                    CvInvoke.Imencode(".jpg", resizedFace, jpegBytes,
+                                                        new KeyValuePair<ImwriteFlags, int>(ImwriteFlags.JpegQuality, 95));
+                                                    faces.Add(jpegBytes.ToArray());
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
-                            currentFrame++;
                         }
-                        frame.Dispose();
+                        currentFrame++;
                     }
+
+                    frame.Dispose();
+                    detector?.Dispose();
                 }
             }
             finally
@@ -104,6 +123,56 @@ namespace Deeppick.Services
             }
 
             return faces;
+        }
+
+        // Вспомогательный метод для извлечения данных о лицах из матрицы YuNet
+        private List<FaceDetectionResult> ExtractFacesData(Mat facesMat)
+        {
+            var results = new List<FaceDetectionResult>();
+
+            // Проверяем формат данных матрицы
+            if (facesMat.Dims != 2 || facesMat.Cols < 15)
+            {
+                return results;
+            }
+
+            // Получаем данные из матрицы
+            float[,] facesData = (float[,])facesMat.GetData(jagged: true);
+
+            for (int i = 0; i < facesMat.Rows; i++)
+            {
+                try
+                {
+                    int x = (int)facesData[i, 0];
+                    int y = (int)facesData[i, 1];
+                    int width = (int)facesData[i, 2];
+                    int height = (int)facesData[i, 3];
+                    float confidence = facesData[i, 14];
+
+                    // Отсеиваем низкокачественные детекции
+                    if (confidence > 0.5f) // Пониженный порог уверенности для видео
+                    {
+                        results.Add(new FaceDetectionResult
+                        {
+                            Rectangle = new Rectangle(x, y, width, height),
+                            Confidence = confidence
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при обработке лица: {ex.Message}");
+                }
+            }
+
+            return results;
+        }
+
+        // Класс для хранения результатов детекции
+        public class FaceDetectionResult
+        {
+            public Rectangle Rectangle { get; set; }
+            public float Confidence { get; set; }
         }
 
         public void GetImagesFromVideo(string inputPath, string outputPath, int rate, int resolution)
@@ -205,7 +274,7 @@ namespace Deeppick.Services
             // Сохраняем каждое изображение как отдельный файл
             for (int i = 0; i < faceImages.Count; i++)
             {
-                string imagePath = Path.Combine(outputPath, $"face_{i:000}.jpg");
+                string imagePath = Path.Combine(outputPath, $"face_{Guid.NewGuid()}.jpg");
                 File.WriteAllBytes(imagePath, faceImages[i]);
             }
 
