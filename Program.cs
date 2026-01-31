@@ -8,6 +8,23 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IFaceAnalysisService,FaceAnalysisService>();
+builder.Services.AddSingleton<IMLService,MLService>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
+
+// Настройка логирования
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 var app = builder.Build();
 
@@ -15,7 +32,28 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 
 app.MapControllers();
 
+var dataDir = Path.Combine(app.Environment.ContentRootPath, "data");
+var modelsDir = Path.Combine(app.Environment.ContentRootPath, "Models");
+
+if (!Directory.Exists(dataDir))
+{
+    Directory.CreateDirectory(Path.Combine(dataDir, "train", "real"));
+    Directory.CreateDirectory(Path.Combine(dataDir, "train", "fake"));
+    Directory.CreateDirectory(Path.Combine(dataDir, "test", "real"));
+    Directory.CreateDirectory(Path.Combine(dataDir, "test", "fake"));
+}
+
+if (!Directory.Exists(modelsDir))
+    Directory.CreateDirectory(modelsDir);
+
+Console.WriteLine($"Data directory: {dataDir}");
+Console.WriteLine($"Models directory: {modelsDir}");
+
+
 app.Run();
+
+
