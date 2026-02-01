@@ -8,8 +8,8 @@ namespace Deeppick.Controllers
     [ApiController]
     public class FaceExtractController : ControllerBase
     {
-        IFaceAnalysisService _faceAnalysisService;
-        public FaceExtractController(IFaceAnalysisService faceAnalysisService) 
+        IFaceExtractService _faceAnalysisService;
+        public FaceExtractController(IFaceExtractService faceAnalysisService) 
         {
             _faceAnalysisService = faceAnalysisService;
         }

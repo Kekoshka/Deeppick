@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.AddScoped<IFaceAnalysisService,FaceAnalysisService>();
+builder.Services.AddScoped<IFaceExtractService,FaceExtractService>();
 builder.Services.AddSingleton<IMLService,MLService>();
 
 builder.Services.AddCors(options =>

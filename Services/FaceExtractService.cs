@@ -8,10 +8,11 @@ using System;
 using System.Drawing;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace Deeppick.Services
 {
-    public class FaceAnalysisService :IFaceAnalysisService
+    public class FaceExtractService :IFaceExtractService
     {
 
         private List<byte[]> ExtractFacesFromVideo(int rate, int frameResolution, byte[] video)
@@ -303,6 +304,66 @@ namespace Deeppick.Services
 
                 File.WriteAllBytes(outputPath, memoryStream.ToArray());
             }
+        }
+
+        public List<byte[]> ExtractFaceFromImage(byte[] image)
+        {
+            string modelPath = "C:\\Users\\Kekoshka\\Source\\Repos\\Deeppick\\face_detection_yunet_2023mar.onnx";
+            Mat frame = new();
+            CvInvoke.Imdecode(image,ImreadModes.ColorRgb, frame);
+            var faces = new List<byte[]>();
+            FaceDetectorYN detector = null;
+
+            if (detector == null || detector.InputSize.Width != frame.Width || detector.InputSize.Height != frame.Height)
+            {
+                detector?.Dispose();
+                detector = new FaceDetectorYN(
+                    model: modelPath,
+                    config: string.Empty,
+                    inputSize: new Size(frame.Width, frame.Height),
+                    scoreThreshold: 0.90f, // Понижен порог для лучшего обнаружения
+                    nmsThreshold: 0.5f,
+                    topK: 5000,
+                    backendId: Emgu.CV.Dnn.Backend.Default,
+                    targetId: Target.Cuda);
+            }
+
+            // Детекция лиц с помощью YuNet
+            using (var facesMat = new Mat())
+            {
+                detector.Detect(frame, facesMat);
+
+                if (facesMat.Rows > 0)
+                {
+                    // Извлекаем данные о лицах
+                    var facesData = ExtractFacesData(facesMat);
+
+                    // Обработка каждого обнаруженного лица
+                    foreach (var faceInfo in facesData)
+                    {
+                        var faceRect = faceInfo.Rectangle;
+
+                        // Проверяем, что прямоугольник лица валидный
+                        if (faceRect.Width > 10 && faceRect.Height > 10 &&
+                            faceRect.X >= 0 && faceRect.Y >= 0 &&
+                            faceRect.X + faceRect.Width <= frame.Width &&
+                            faceRect.Y + faceRect.Height <= frame.Height)
+                        {
+                            // Вырезание и изменение размера области лица
+                            using (var faceMat = new Mat(frame, faceRect))
+                            using (var jpegBytes = new VectorOfByte())
+                            {
+                                CvInvoke.Imencode(".jpg", faceMat, jpegBytes,
+                                    new KeyValuePair<ImwriteFlags, int>(ImwriteFlags.JpegQuality, 95));
+                                faces.Add(jpegBytes.ToArray());
+                            }
+                        }
+                    }
+                }
+            }
+            frame.Dispose();
+            detector?.Dispose();
+            return faces;
         }
     }
 }

@@ -105,7 +105,7 @@ namespace Deeppick.Services
             // Сохраняем каждое изображение
             for (int i = 0; i < imagesList.Count; i++)
             {
-                string fileName = $"{baseFileName}_{i:000}.jpg";
+                string fileName = $"{baseFileName}_{Guid.NewGuid()}.jpg";
                 string fullPath = Path.Combine(path, fileName);
                 File.WriteAllBytes(fullPath, imagesList[i]);
             }
@@ -172,6 +172,10 @@ namespace Deeppick.Services
             }
 
             return frames;
+        }
+        public byte[] ResizeImage(int Height, int width)
+        {
+
         }
     }
 
