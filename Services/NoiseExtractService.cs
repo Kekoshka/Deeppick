@@ -1,4 +1,5 @@
-﻿using Emgu.CV;
+﻿using Deeppick.Interfaces;
+using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using Emgu.CV.Util;
@@ -7,7 +8,7 @@ using System.Drawing;
 
 namespace Deeppick.Services
 {
-    public class NoiseExtractService
+    public class NoiseExtractService : INoiseExtractService
     {
         private int _iterations = 1;
         private double _errorScale = 1.0;
@@ -52,6 +53,14 @@ namespace Deeppick.Services
 
             return await Task.Run(() => ProcessImage(imageBytes));
         }
+        public async Task<List<byte[]>> ProcessImageRangeAsync(List<byte[]> imageBytes)
+        {
+            List<byte[]> images = new();
+            foreach (var imageByte in imageBytes)
+                images.Add(await ProcessImageAsync(imageByte));
+            return images;
+        }
+
 
         /// <summary>
         /// Синхронная версия обработки изображения

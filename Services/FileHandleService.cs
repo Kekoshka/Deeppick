@@ -1,16 +1,18 @@
-﻿using System.Drawing.Imaging;
-using MediaFileProcessor.Models.Enums;
+﻿using Deeppick.Interfaces;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
+using Emgu.CV.Util;
 using MediaFileProcessor;
 using MediaFileProcessor.Models;
 using MediaFileProcessor.Models.Common;
-using Emgu.CV.CvEnum;
-using Emgu.CV.Util;
-using Emgu.CV;
+using MediaFileProcessor.Models.Enums;
+using System.Drawing;
+using System.Drawing.Imaging;
 
 
 namespace Deeppick.Services
 {
-    public class FileHandleService
+    public class FileHandleService : IFileHandleService
     {
         public FileHandleService() { }
         public string[] GetDirectoryFilesPaths(string directoryPath, string[] filesExtensions)
@@ -173,10 +175,32 @@ namespace Deeppick.Services
 
             return frames;
         }
-        public byte[] ResizeImage(int Height, int width)
+        public byte[] ResizeImage(int height, int width, byte[] imageByte)
         {
+            Mat imageMat = new();
+            CvInvoke.Imdecode(imageByte,ImreadModes.ColorRgb,imageMat);
+            using (var resizedFace = new Mat())
+            {
+                CvInvoke.Resize(imageMat, resizedFace,
+                    new Size(height, width),
+                    interpolation: Inter.Linear);
 
+                using (var jpegBytes = new VectorOfByte())
+                {
+                    CvInvoke.Imencode(".jpg", resizedFace, jpegBytes,
+                        new KeyValuePair<ImwriteFlags, int>(ImwriteFlags.JpegQuality, 95));
+                    return jpegBytes.ToArray();
+                }
+            }
         }
+        public List<byte[]> ResizeImageRange(int height, int width, List<byte[]> imagesBytes)
+        {
+            List<byte[]> resizedImages = new();
+            foreach (var imageByte in imagesBytes)
+                resizedImages.Add(ResizeImage(height, width, imageByte));
+            return resizedImages;
+        }
+        public byte[] ResizeImage(int size, byte[] imageByte) => ResizeImage(size, size, imageByte);
+        public List<byte[]> ResizeImageRange(int size, List<byte[]> imagesBytes) => ResizeImageRange(size, size, imagesBytes);
     }
-
 }

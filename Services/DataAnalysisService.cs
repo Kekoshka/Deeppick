@@ -1,6 +1,8 @@
-﻿namespace Deeppick.Services
+﻿using Deeppick.Interfaces;
+
+namespace Deeppick.Services
 {
-    public class DataAnalysisService
+    public class DataAnalysisService : IDataAnalysisService
     {
         public DataAnalysisService() { }
 

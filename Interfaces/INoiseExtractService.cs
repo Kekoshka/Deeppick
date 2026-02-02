@@ -9,6 +9,7 @@ namespace Deeppick.Interfaces
         double ErrorScale { get; set; }
         bool EqualizeHistogram { get; set; }
         Task<byte[]> ProcessImageAsync(byte[] imageBytes);
-        public byte[] ProcessImage(byte[] imageBytes);
-    }
+        byte[] ProcessImage(byte[] imageBytes);
+        Task<List<byte[]>> ProcessImageRangeAsync(List<byte[]> imageBytes);
+}
 }
