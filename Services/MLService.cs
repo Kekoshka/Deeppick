@@ -242,6 +242,76 @@ namespace Deeppick.Services
             }
         }
 
+        public async Task<float> PredictImageAsync(byte[] imageBytes, string modelPath = "Models/deepfake_model.zip")
+        {
+            if(_loadedModel is null)
+            {
+                var fullModelPath = Path.Combine(_environment.ContentRootPath, modelPath);
+                if (!File.Exists(fullModelPath))
+                    throw new FileNotFoundException($"Model file not found: {fullModelPath}");
+                _loadedModel = _mlContext.Model.Load(fullModelPath, out var modelSchema);
+            }
+            if(_predictionEngine is null)
+            {
+                _predictionEngine = _mlContext.Model.CreatePredictionEngine<ModelInput, ModelOutput>(_loadedModel);
+            }
+
+            var tempFilePath = Path.GetTempFileName();
+            var tempImagePath = Path.ChangeExtension(tempFilePath, ".jpg");
+
+            // Перемещаем временный файл с правильным расширением
+            if (File.Exists(tempFilePath))
+                File.Delete(tempFilePath);
+
+            // Сохраняем массив байт в файл
+            await File.WriteAllBytesAsync(tempImagePath, imageBytes);
+
+            try
+            {
+                // 3. Проверка, что файл создан и не пустой
+                var fileInfo = new FileInfo(tempImagePath);
+                if (!fileInfo.Exists || fileInfo.Length == 0)
+                    throw new InvalidDataException("Failed to create temporary image file");
+
+                // 4. Создание входных данных
+                var input = new ModelInput
+                {
+                    ImagePath = tempImagePath,
+                    Label = string.Empty // Метка не нужна для предсказания
+                };
+
+                // 5. Выполнение предсказания
+                var prediction = _predictionEngine.Predict(input);
+
+                if (prediction == null || prediction.Score == null || prediction.Score.Length < 2)
+                    throw new InvalidOperationException("Invalid prediction result");
+
+                // 6. Получаем вероятность "real" (не дипфейк)
+                // Предполагаем, что:
+                // - Score[0] = вероятность класса "real" (настоящее)
+                // - Score[1] = вероятность класса "fake" (дипфейк)
+                var realProbability = prediction.Score[0];
+
+                // 7. Дополнительная проверка на валидность вероятности
+                if (realProbability < 0 || realProbability > 1)
+                {
+                    // Нормализуем, если значения выходят за пределы [0, 1]
+                    var sum = prediction.Score[0] + prediction.Score[1];
+                    if (sum > 0)
+                        realProbability = prediction.Score[0] / sum;
+                    else
+                        realProbability = 0.5f; // Неопределенность
+                }
+
+                return realProbability;
+            }
+            finally
+            {
+                if (File.Exists(tempImagePath))
+                    File.Delete(tempImagePath);
+            }
+        }
+
         public TrainingStatus GetTrainingStatus()
         {
             return _trainingStatus;

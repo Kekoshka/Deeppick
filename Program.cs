@@ -8,6 +8,10 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IFaceExtractService,FaceExtractService>();
+builder.Services.AddScoped<IDataAnalysisService, DataAnalysisService>();
+builder.Services.AddScoped<IDataHandleService, DataHandleService>();
+builder.Services.AddScoped<IFileHandleService, FileHandleService>();
+builder.Services.AddScoped<INoiseExtractService, NoiseExtractService>();
 builder.Services.AddSingleton<IMLService,MLService>();
 
 builder.Services.AddCors(options =>

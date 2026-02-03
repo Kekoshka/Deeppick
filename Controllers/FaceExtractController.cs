@@ -9,9 +9,11 @@ namespace Deeppick.Controllers
     public class FaceExtractController : ControllerBase
     {
         IFaceExtractService _faceAnalysisService;
-        public FaceExtractController(IFaceExtractService faceAnalysisService) 
+        IDataHandleService _dataHandleService;
+        public FaceExtractController(IFaceExtractService faceAnalysisService, IDataHandleService dataHandleService) 
         {
             _faceAnalysisService = faceAnalysisService;
+            _dataHandleService = dataHandleService;
         }
 
         //[HttpPost]
@@ -33,6 +35,12 @@ namespace Deeppick.Controllers
             {
                 _faceAnalysisService.GetImagesFromVideo(file, outputPath, rate, resolution);
             }
+            return NoContent();
+        }
+        [HttpPost("noise")]
+        public async Task<IActionResult> ExtractFacesNoiseFromFolder(int rate, int resolution, string folderPath, string outputPath)
+        {
+            await _dataHandleService.ExtractFacesNoiseFromAllDirectoryVideosAsync(rate, resolution, folderPath, outputPath);
             return NoContent();
         }
     }
