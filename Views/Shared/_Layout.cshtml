@@ -1,0 +1,72 @@
+﻿<!DOCTYPE html>
+<html lang="ru" style="background-color: #121212">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Deepfake Analyzer</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    @RenderSection("Styles", required: false)
+</head>
+<body class="dark">
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>DEEPFAKE ANALYZER</span>
+            </a>
+
+            <div class="nav-menu">
+                <a href="/" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Главная</span>
+                </a>
+                <a href="/Home/Upload" class="nav-link">
+                    <i class="fas fa-camera"></i>
+                    <span>Проверить фото</span>
+                </a>
+                <a href="/Home/Upload" class="nav-link">
+                    <i class="fas fa-video"></i>
+                    <span>Проверить видео</span>
+                </a>
+                <a href="#about" class="nav-link">
+                    <i class="fas fa-info-circle"></i>
+                    <span>О проекте</span>
+                </a>
+            </div>
+
+            <button class="theme-toggle" id="themeToggle">
+                <i class="fas fa-sun"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+       
+    </footer>
+
+    <script src="~/js/site.js"></script>
+    <script>
+        // Переключение темы
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            document.body.classList.toggle('dark');
+            const icon = this.querySelector('i');
+            if (document.body.classList.contains('dark')) {
+                icon.className = 'fas fa-sun';
+                localStorage.setItem('darkmode', 1)
+            } else {
+                icon.className = 'fas fa-moon';
+                localStorage.setItem('darkmode', 0)
+            }
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,277 @@
+@{
+    ViewData["Title"] = "Проверка файла";
+}
+<link rel="stylesheet" href="~/css/upload.css" />
+<div class="upload-page fade-in">
+    <div class="upload-header">
+        <h1 class="hero-title mb-2">Проверка файла</h1>
+        <p class="hero-description">
+            Загрузите фото или видео для анализа на признаки искусственного происхождения
+        </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="uploadForm">
+        <div class="upload-content">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon-large" id="uploadIcon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h3 class="mb-2" id="uploadTitle">Перетащите файл сюда</h3>
+                <p class="mb-3">или нажмите для выбора</p>
+
+                <input type="file" name="Byte" accept="image/*,video/*" class="file-input-hidden" id="fileInput">
+
+                <label for="fileInput" class="btn">
+                    <i class="fas fa-folder-open"></i>
+                    Выбрать файл
+                </label>
+
+                <p class="mt-3" style="color: var(--muted-foreground); font-size: 0.875rem;" id="uploadDetails">
+                    Поддерживаемые форматы: JPG, PNG, GIF, BMP, MP4, AVI, MOV, WMV<br>
+                    Максимальный размер: 500MB для видео, 50MB для изображений
+                </p>
+            </div>
+
+            <div class="file-info" id="fileInfo" style="display: none;">
+                <h4 class="mb-2">Выбранный файл:</h4>
+                <div class="file-info-item">
+                    <span>Название:</span>
+                    <span id="fileName"></span>
+                </div>
+                <div class="file-info-item">
+                    <span>Размер:</span>
+                    <span id="fileSize"></span>
+                </div>
+                <div class="file-info-item">
+                    <span>Тип:</span>
+                    <span id="fileType"></span>
+                </div>
+                <div class="file-info-item" id="durationRow" style="display: none;">
+                    <span>Длительность:</span>
+                    <span id="fileDuration"></span>
+                </div>
+                <div class="file-info-item" id="fileError" style="display: none; color: #dc3545;">
+                    <span>Ошибка:</span>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-large" style="width: 100%; margin-top: 2rem;" id="submitBtn" disabled>
+                <i class="fas fa-search"></i>
+                Начать анализ
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        (function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadIcon = document.getElementById('uploadIcon').querySelector('i');
+            const uploadTitle = document.getElementById('uploadTitle');
+            const fileInfoDiv = document.getElementById('fileInfo');
+            const fileNameSpan = document.getElementById('fileName');
+            const fileSizeSpan = document.getElementById('fileSize');
+            const fileTypeSpan = document.getElementById('fileType');
+            const durationRow = document.getElementById('durationRow');
+            const fileDurationSpan = document.getElementById('fileDuration');
+            const fileErrorDiv = document.getElementById('fileError');
+            const errorMessageSpan = document.getElementById('errorMessage');
+            const form = document.getElementById('uploadForm');
+            const submitBtn = document.getElementById('submitBtn');
+
+            const limits = {
+                image: { maxSizeMB: 50 },
+                video: { maxSizeMB: 500 }
+            };
+
+            let isValidFile = false;
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('drag-over');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleFileSelect();
+                }
+            });
+
+            function handleFileSelect() {
+                const file = fileInput.files[0];
+                if (!file) {
+                    resetFileInfo();
+                    return;
+                }
+
+                const fileType = file.type;
+                let fileCategory = null;
+                if (fileType.startsWith('image/')) {
+                    fileCategory = 'image';
+                } else if (fileType.startsWith('video/')) {
+                    fileCategory = 'video';
+                } else {
+                    showError('Неподдерживаемый тип файла. Пожалуйста, выберите изображение или видео.');
+                    return;
+                }
+
+                const maxMB = limits[fileCategory].maxSizeMB;
+                if (file.size > maxMB * 1024 * 1024) {
+                    showError(`Файл слишком большой. Максимальный размер для ${fileCategory === 'image' ? 'изображений' : 'видео'}: ${maxMB}MB`);
+                    return;
+                }
+
+                isValidFile = true;
+                fileErrorDiv.style.display = 'none';
+                submitBtn.disabled = false;
+
+                fileNameSpan.textContent = file.name;
+                fileSizeSpan.textContent = formatFileSize(file.size);
+                fileTypeSpan.textContent = file.type.split('/')[1].toUpperCase();
+                fileInfoDiv.style.display = 'block';
+
+                if (fileCategory === 'video') {
+                    getVideoDuration(file).then(duration => {
+                        fileDurationSpan.textContent = formatDuration(duration);
+                        durationRow.style.display = 'flex';
+                    }).catch(() => {
+                        fileDurationSpan.textContent = 'Не удалось определить';
+                        durationRow.style.display = 'flex';
+                    });
+                } else {
+                    durationRow.style.display = 'none';
+                }
+
+                if (fileCategory === 'image') {
+                    uploadIcon.className = 'fas fa-camera';
+                    uploadTitle.textContent = 'Изображение выбрано';
+                } else {
+                    uploadIcon.className = 'fas fa-video';
+                    uploadTitle.textContent = 'Видео выбрано';
+                }
+            }
+
+            function showError(message) {
+                isValidFile = false;
+                submitBtn.disabled = true;
+                fileInfoDiv.style.display = 'block';
+                durationRow.style.display = 'none';
+                fileErrorDiv.style.display = 'flex';
+                errorMessageSpan.textContent = message;
+                fileNameSpan.textContent = fileInput.files[0]?.name || '';
+                fileSizeSpan.textContent = fileInput.files[0] ? formatFileSize(fileInput.files[0].size) : '';
+                fileTypeSpan.textContent = fileInput.files[0]?.type.split('/')[1]?.toUpperCase() || '';
+            }
+
+            function resetFileInfo() {
+                isValidFile = false;
+                submitBtn.disabled = true;
+                fileInfoDiv.style.display = 'none';
+                fileErrorDiv.style.display = 'none';
+                uploadIcon.className = 'fas fa-cloud-upload-alt';
+                uploadTitle.textContent = 'Перетащите файл сюда';
+            }
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                if (!isValidFile || !fileInput.files[0]) {
+                    alert('Пожалуйста, выберите корректный файл.');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const isImage = file.type.startsWith('image/');
+                const isVideo = file.type.startsWith('video/');
+
+                let actionUrl = '';
+                if (isImage) {
+                    actionUrl = '/api/ContentAnalyze/image';
+                } else if (isVideo) {
+                    actionUrl = '/api/ContentAnalyze/video';
+                } else {
+                    alert('Неподдерживаемый тип файла');
+                    return;
+                }
+
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Анализ выполняется...';
+                submitBtn.disabled = true;
+
+                const formData = new FormData();
+                formData.append('File', file);
+
+                try {
+                    const response = await fetch(actionUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const responseNoise = await fetch(actionUrl+'Noise', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        
+                    } else {
+                        let errorMsg = 'Произошла ошибка при анализе файла.';
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.message) errorMsg = errorData.message;
+                        } catch {
+                            
+                        }
+                        alert(errorMsg);
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    alert('Ошибка сети. Пожалуйста, попробуйте снова.');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            function getVideoDuration(file) {
+                return new Promise((resolve, reject) => {
+                    const video = document.createElement('video');
+                    video.preload = 'metadata';
+                    video.onloadedmetadata = () => {
+                        resolve(video.duration);
+                    };
+                    video.onerror = reject;
+                    video.src = URL.createObjectURL(file);
+                });
+            }
+
+            function formatDuration(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+        })();
+    </script>
+}
