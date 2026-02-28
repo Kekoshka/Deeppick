@@ -226,7 +226,8 @@
                     });
 
                     if (response.ok) {
-                        
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
                     } else {
                         let errorMsg = 'Произошла ошибка при анализе файла.';
                         try {
@@ -234,6 +235,22 @@
                             if (errorData.message) errorMsg = errorData.message;
                         } catch {
                             
+                        }
+                        alert(errorMsg);
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }
+
+                    if (responseNoise.ok) {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    } else {
+                        let errorMsg = 'Произошла ошибка при анализе файла.';
+                        try {
+                            const errorData = await response.json();
+                            if (errorData.message) errorMsg = errorData.message;
+                        } catch {
+
                         }
                         alert(errorMsg);
                         submitBtn.innerHTML = originalText;

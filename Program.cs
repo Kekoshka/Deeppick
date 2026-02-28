@@ -58,6 +58,8 @@ if (!Directory.Exists(modelsDir))
 
 Console.WriteLine($"Data directory: {dataDir}");
 Console.WriteLine($"Models directory: {modelsDir}");
+Console.WriteLine("onnx: "+Path.Combine(Directory.GetCurrentDirectory(), "face_detection_yunet_2023mar.onnx")
+);
 
 app.MapControllerRoute(
     name: "default",

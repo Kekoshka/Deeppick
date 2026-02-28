@@ -37,7 +37,7 @@ namespace Deeppick.Services
                     if (frameInterval < 1) frameInterval = 1;
 
                     // Проверка наличия файла модели YuNet
-                    string modelPath = "C:\\Users\\Administrator\\Desktop\\work\\GitHub\\DeepfakeDetectionWeb\\final\\Deeppick\\face_detection_yunet_2023mar.onnx";
+                    string modelPath = Path.Combine(Directory.GetCurrentDirectory(), "face_detection_yunet_2023mar.onnx");
                     if (!File.Exists(modelPath))
                     {
                         throw new FileNotFoundException($"Файл модели YuNet не найден: {modelPath}");
@@ -308,7 +308,7 @@ namespace Deeppick.Services
 
         public List<byte[]> ExtractFaceFromImage(byte[] image)
         {
-            string modelPath = "C:\\Users\\Administrator\\Desktop\\work\\GitHub\\DeepfakeDetectionWeb\\final\\Deeppick\\face_detection_yunet_2023mar.onnx";
+            string modelPath = Path.Combine(Directory.GetCurrentDirectory(),"face_detection_yunet_2023mar.onnx");
             Mat frame = new();
             CvInvoke.Imdecode(image,ImreadModes.ColorRgb, frame);
             var faces = new List<byte[]>();
