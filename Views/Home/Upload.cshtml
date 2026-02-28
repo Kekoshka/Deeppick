@@ -50,6 +50,14 @@
                     <span>Длительность:</span>
                     <span id="fileDuration"></span>
                 </div>
+                <div class="file-info-item">
+                    <span>Обычная проверка:</span>
+                    <span id="regularCheck"></span>
+                </div>
+                <div class="file-info-item">
+                    <span>Проверка на шум:</span>
+                    <span id="noiseCheck"></span>
+                </div>
                 <div class="file-info-item" id="fileError" style="display: none; color: #dc3545;">
                     <span>Ошибка:</span>
                     <span id="errorMessage"></span>
@@ -75,6 +83,8 @@
             const fileNameSpan = document.getElementById('fileName');
             const fileSizeSpan = document.getElementById('fileSize');
             const fileTypeSpan = document.getElementById('fileType');
+            const regCheck = document.getElementById('regularCheck');
+            const noiseCheck = document.getElementById('noiseCheck');
             const durationRow = document.getElementById('durationRow');
             const fileDurationSpan = document.getElementById('fileDuration');
             const fileErrorDiv = document.getElementById('fileError');
@@ -226,6 +236,8 @@
                     });
 
                     if (response.ok) {
+                        msg = await response.json();
+                        regCheck.innerHTML = msg;
                         submitBtn.innerHTML = originalText;
                         submitBtn.disabled = false;
                     } else {
@@ -242,12 +254,14 @@
                     }
 
                     if (responseNoise.ok) {
+                        msg = await responseNoise.json();
+                        noiseCheck.innerHTML = msg;
                         submitBtn.innerHTML = originalText;
                         submitBtn.disabled = false;
                     } else {
                         let errorMsg = 'Произошла ошибка при анализе файла.';
                         try {
-                            const errorData = await response.json();
+                            const errorData = await responseNoise.json();
                             if (errorData.message) errorMsg = errorData.message;
                         } catch {
 
